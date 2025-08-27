@@ -1,0 +1,16 @@
+// Minimal Prisma schema placeholder
+// datasource db {
+//   provider = "sqlite"
+//   url      = "file:./dev.db"
+// }
+
+// generator client {
+//   provider = "prisma-client-js"
+// }
+
+// model User {
+//   id      String @id @default(cuid())
+//   email   String @unique
+//   name    String?
+//   points  Int    @default(0)
+// }
