@@ -1,0 +1,192 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// MVP 核心 Models
+// ==========================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  phone         String?   @unique
+  password      String
+  name          String
+  
+  // 點數（只有普通用戶需要）
+  currentPoints Int       @default(0)
+  
+  // 角色管理
+  role          UserRole  @default(USER)
+  isActive      Boolean   @default(true)
+  
+  // 關聯
+  bookings      Booking[]
+  purchases     Purchase[]
+  activities    Activity[] // 商戶的活動
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([email])
+}
+
+enum UserRole {
+  USER      // 普通用戶
+  MERCHANT  // 商戶
+  ADMIN     // 管理員
+}
+
+// 簡化版活動分類
+model Category {
+  id          String     @id @default(cuid())
+  name        String     
+  slug        String     @unique
+  activities  Activity[]
+}
+
+model Activity {
+  id            String    @id @default(cuid())
+  
+  // 基本信息
+  name          String
+  description   String    @db.Text
+  points        Int       // 所需點數
+  originalPrice Decimal   @db.Decimal(10, 2)
+  
+  // 活動詳情
+  duration      Int       // 分鐘
+  maxPeople     Int       @default(4)
+  
+  // 地點（簡化版）
+  location      String    
+  address       String    
+  district      String    
+  
+  // 圖片
+  coverImage    String    
+  
+  // 關聯
+  merchantId    String
+  merchant      User      @relation(fields: [merchantId], references: [id])
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id])
+  
+  // 狀態
+  status        ActivityStatus @default(DRAFT)
+  
+  // 關聯數據
+  timeSlots     TimeSlot[]
+  bookings      Booking[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@index([merchantId])
+  @@index([status])
+}
+
+enum ActivityStatus {
+  DRAFT     // 待審核
+  ACTIVE    // 上架
+  INACTIVE  // 下架
+}
+
+// 時段管理（核心功能）
+model TimeSlot {
+  id          String    @id @default(cuid())
+  activityId  String
+  activity    Activity  @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  
+  date        DateTime  @db.Date
+  startTime   String    // "14:00"
+  endTime     String    // "16:00"
+  
+  capacity    Int       
+  booked      Int       @default(0)
+  
+  bookings    Booking[]
+  
+  @@unique([activityId, date, startTime])
+  @@index([activityId, date])
+}
+
+// 簡化版套餐
+model Package {
+  id          String    @id @default(cuid())
+  name        String    
+  points      Int       
+  price       Decimal   @db.Decimal(10, 2)
+  status      Boolean   @default(true)
+  
+  purchases   Purchase[]
+}
+
+// 購買記錄
+model Purchase {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  packageId   String
+  package     Package   @relation(fields: [packageId], references: [id])
+  
+  points      Int       
+  amount      Decimal   @db.Decimal(10, 2)
+  status      PurchaseStatus @default(PENDING)
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([userId])
+}
+
+enum PurchaseStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// 預訂（核心功能）
+model Booking {
+  id          String    @id @default(uuid())
+  bookingNo   String    @unique @default(cuid())
+  
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  activityId  String
+  activity    Activity  @relation(fields: [activityId], references: [id])
+  timeSlotId  String?
+  timeSlot    TimeSlot? @relation(fields: [timeSlotId], references: [id])
+  
+  // 預訂信息
+  bookingDate DateTime  
+  people      Int       @default(2)
+  pointsUsed  Int       
+  
+  // 聯絡
+  contactName String
+  contactPhone String
+  
+  // 狀態
+  status      BookingStatus @default(PENDING)
+  
+  // 核銷
+  confirmCode String?   @unique
+  confirmedAt DateTime?
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([status])
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
