@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: '輸入資料無效', details: error.errors },
+        { error: '輸入資料無效', details: error },
         { status: 400 }
       );
     }
